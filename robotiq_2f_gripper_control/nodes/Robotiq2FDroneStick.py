@@ -37,6 +37,7 @@
 
 """@package docstring
 Command-line interface for sending simple commands to a ROS node controlling a 2F gripper.
+
 This serves as an example for publishing messages on the 'Robotiq2FGripperRobotOutput' topic using the 'Robotiq2FGripper_robot_output' msg type for sending commands to a 2F gripper.
 """
 
@@ -44,6 +45,8 @@ import roslib; roslib.load_manifest('robotiq_2f_gripper_control')
 import rospy
 from robotiq_2f_gripper_control.msg import _Robotiq2FGripper_robot_output  as outputMsg
 from time import sleep
+import swarmlib
+import numpy as np
 
 
 def genCommand(char, command):
@@ -97,6 +100,17 @@ def genCommand(char, command):
         if command.rFR < 0:
             command.rFR = 0
 
+    # New char for commanding with dronestick for opening
+    # and closing
+    if char == 'q':
+        if command.rPR == 0:
+            command.rPR = 90
+
+        elif command.rPR == 90:
+            command.rPR = 0
+        else:
+            command.rPR = 0
+
     return command
         
 
@@ -133,13 +147,80 @@ def publisher():
     """Main loop which requests new commands and publish them on the Robotiq2FGripperRobotOutput topic."""
     rospy.init_node('Robotiq2FGripperSimpleController')
     
+    # Number of values that will be averaged to determine
+    # when a drop has occurred
+    numvals = 10
+
+    # Initialize a counter for the while loop
+    counter = 0
+
+    # Initialize dropcounter. This variable ensures that
+    # a command from the dronestick is not sent twice
+    dropcounter = 0;
+
+    # Initialize array of previous positions. The length
+    # of this array is determined by the variable numvals
+    pastPositions = np.zeros((1,numvals),float)
+
+    # Identify drone that is the dronestick
+    drone2 = swarmlib.Drone('cf2')
+
+    # Get initial position of drone as a 3 dimensional vector
+    pos = drone2.position()
+
+    # Isolate vertical position of drone
+    zmax = pos[2]
+
+    # The next two lines were already here. They initialize
+    # the publisher and the command variable 
     pub = rospy.Publisher('Robotiq2FGripperRobotOutput', outputMsg.Robotiq2FGripper_robot_output)
 
     command = outputMsg.Robotiq2FGripper_robot_output();
 
+    # Automate the initialization of the gripper
+    command = genCommand('a', command)
+
     while not rospy.is_shutdown():
 
-        command = genCommand(askForCommand(command), command)            
+        # increment the counter and drop counter
+        counter += 1
+        dropcounter += 1
+
+        # print for debugging
+        #print drone2.position()
+
+        # Get current position and isolate vertical component
+        pos = drone2.position()
+        posz = pos[2]
+
+        # Update the previous position values
+        for i in range(numvals-1):
+            pastPositions[0,i] = pastPositions[0,i+1]
+
+
+        # Add newest position value to the end of the array    
+        pastPositions[0,numvals-1] = posz
+
+        # Do not do anything before the vector of previous 
+        # positions is filled.
+        if counter > numvals:
+
+            # If the current position of the dronestick is
+            # below the average of the previous positions,
+            # then the dronestick has been pulled down by 
+            # the operator.
+            if posz < np.mean(pastPositions) - .05 and dropcounter > 5:
+                # Reset dropcounter so the command is not sent twice
+                dropcounter = 0
+
+                # print for debugging
+                print "Something happened"
+
+                # Generate a new command using the new 'q'
+                # char as defined in the askforCommand
+                # function
+                command = genCommand('q', command) 
+                print command           
         
         pub.publish(command)
 

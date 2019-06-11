@@ -49,6 +49,12 @@ import robotiq_modbus_rtu.comModbusRtu
 import os, sys
 from robotiq_2f_gripper_control.msg import _Robotiq2FGripper_robot_input  as inputMsg
 from robotiq_2f_gripper_control.msg import _Robotiq2FGripper_robot_output as outputMsg
+import swarmlib
+import numpy as np
+
+
+
+
 
 def mainLoop(device):
     
@@ -59,7 +65,16 @@ def mainLoop(device):
     #We connect to the address received as an argument
     gripper.client.connectToDevice(device)
 
+    command = outputMsg.Robotiq2FGripper_robot_output()
+
     rospy.init_node('robotiq2FGripper')
+    '''numvals = 10
+    counter = 0
+    dropcounter = 0;
+    pastPositions = np.zeros((1,numvals),float)
+    drone2 = swarmlib.Drone('cf2')
+    pos = drone2.position()
+    zmax = pos[2]'''
 
     #The Gripper status is published on the topic named 'Robotiq2FGripperRobotInput'
     pub = rospy.Publisher('Robotiq2FGripperRobotInput', inputMsg.Robotiq2FGripper_robot_input)
@@ -70,14 +85,36 @@ def mainLoop(device):
 
     #We loop
     while not rospy.is_shutdown():
-
+      '''counter += 1
+      dropcounter += 1'''
       #Get and publish the Gripper status
       status = gripper.getStatus()
       pub.publish(status)     
 
+      '''print drone2.position()
+      pos = drone2.position()
+      posz = pos[2]
+
+      for i in range(numvals-1):
+      	pastPositions[0,i] = pastPositions[0,i+1]
+
+      pastPositions[0,numvals-1] = posz'''
+
+      '''if counter > numvals:
+		if posz < np.mean(pastPositions) - .05 and dropcounter > 5:
+			dropcounter = 0
+			print "Something happened"
+			if command.rPR == 0:
+				command.rPR = 255
+
+    		if command.rPR == 255:
+        		command.rPR = 0 
+        	#else:
+        	#	command.rPR = 0'''
+
       #Wait a little
       #rospy.sleep(0.05)
-
+      
       #Send the most recent command
       gripper.sendCommand()
 
