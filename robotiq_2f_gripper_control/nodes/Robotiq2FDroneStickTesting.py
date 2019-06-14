@@ -38,7 +38,8 @@
 """@package docstring
 Command-line interface for sending simple commands to a ROS node controlling a 2F gripper.
 
-This serves as an example for publishing messages on the 'Robotiq2FGripperRobotOutput' topic using the 'Robotiq2FGripper_robot_output' msg type for sending commands to a 2F gripper.
+This serves as an example for publishing messages on the 'Robotiq2FGripperRobotOutput' 
+topic using the 'Robotiq2FGripper_robot_output' msg type for sending commands to a 2F gripper.
 """
 
 import roslib; roslib.load_manifest('robotiq_2f_gripper_control')
@@ -144,7 +145,8 @@ def askForCommand(command):
     return raw_input(strAskForCommand)
 
 def publisher():
-    """Main loop which requests new commands and publish them on the Robotiq2FGripperRobotOutput topic."""
+    """Main loop which requests new commands and publish them on the 
+    Robotiq2FGripperRobotOutput topic."""
     rospy.init_node('Robotiq2FGripperSimpleController')
     
     # Number of values that will be averaged to determine
@@ -177,10 +179,15 @@ def publisher():
 
     command = outputMsg.Robotiq2FGripper_robot_output();
 
+
+    print "Initialized variable"
+    print command
     # Automate the initialization of the gripper
     print "Resetting gripper"
     command = genCommand('r', command)
 
+    print "After reset"
+    print command
     pub.publish(command)
 
     rospy.sleep(0.5)
@@ -189,10 +196,12 @@ def publisher():
     print "Activating Gripper"
     command = genCommand('a', command)
 
+    print "After activate"
+    print command
     pub.publish(command)
 
     rospy.sleep(2.0)
-    print "Gripper Activated"
+    print "Gripper Activated"    
 
     while not rospy.is_shutdown():
 
@@ -223,7 +232,7 @@ def publisher():
             # below the average of the previous positions,
             # then the dronestick has been pulled down by 
             # the operator.
-            if posz < np.mean(pastPositions) - .025 and dropcounter > 5:
+            if posz < np.mean(pastPositions) - .03 and dropcounter > 5:
                 # Reset dropcounter so the command is not sent twice
                 dropcounter = 0
 
@@ -233,11 +242,17 @@ def publisher():
                 # Generate a new command using the new 'q'
                 # char as defined in the askforCommand
                 # function
-                command = genCommand('q', command) 
-                print command           
-        
-        pub.publish(command)
+                if posz > .1:
+                	command = genCommand('q', command) 
+                	#print command
+                	
+                else:
+                	command = genCommand('o', command)
+                	print "Dronestick below threshold. Opening gripper"
 
+                pub.publish(command)
+
+        
         rospy.sleep(0.1)
                         
 
